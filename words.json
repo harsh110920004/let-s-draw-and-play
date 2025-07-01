@@ -1,0 +1,23 @@
+{
+  "animals": [
+    "cat", "dog", "fish", "elephant", "tiger", "parrot", "giraffe", "rabbit", "horse", "panda",
+    "lion", "zebra", "monkey", "koala", "bear", "wolf", "fox", "deer", "kangaroo", "crocodile",
+    "alligator", "snake", "dolphin", "whale", "penguin", "ostrich", "peacock", "hamster", "rat", "mouse",
+    "bat", "squirrel", "buffalo", "donkey", "camel", "goat", "sheep", "cow", "yak", "leopard",
+    "jaguar", "cheetah", "hyena", "antelope", "rhino", "hedgehog", "otter", "beaver", "mongoose", "chameleon"
+  ],
+  "tech": [
+    "computer", "phone", "robot", "drone", "smartwatch", "laptop", "tablet", "AI", "VR headset", "server",
+    "motherboard", "graphics card", "processor", "keyboard", "mouse", "monitor", "router", "modem", "bluetooth", "wifi",
+    "cybersecurity", "blockchain", "quantum computer", "chatbot", "search engine", "browser", "hard disk", "SSD", "cloud", "data center",
+    "API", "compiler", "interpreter", "syntax", "debugger", "firmware", "IoT", "edge computing", "5G", "nanotech",
+    "machine learning", "deep learning", "neural network", "AR glasses", "microchip", "encryption", "firewall", "database", "RAM", "BIOS"
+  ],
+  "default": [
+    "apple", "pizza", "train", "car", "book", "chair", "pen", "bottle", "shoe", "ball",
+    "cup", "bag", "pencil", "lamp", "fan", "hat", "glove", "plate", "bicycle", "brush",
+    "table", "couch", "towel", "mirror", "wallet", "box", "clock", "radio", "fridge", "spoon",
+    "fork", "knife", "scissors", "bucket", "mug", "toy", "jacket", "watch", "umbrella", "camera",
+    "ladder", "speaker", "helmet", "sunglasses", "key", "broom", "mattress", "blanket", "soap", "toothbrush"
+  ]
+}

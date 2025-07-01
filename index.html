@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Skribbl Clone 🎨</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      background-color: #f0f0f0;
+    }
+
+    body.dark {
+      background: #121212;
+      color: white;
+    }
+
+    body.dark input,
+    body.dark textarea {
+      background: #333;
+      color: white;
+      border: 1px solid #777;
+    }
+
+    body.dark canvas {
+      background: #1e1e1e;
+      border-color: white;
+    }
+
+    h2 {
+      margin: 10px 0;
+    }
+
+    canvas {
+      border: 2px solid black;
+      touch-action: none;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+
+    #game {
+      display: none;
+      margin-top: 10px;
+      width: 95%;
+      max-width: 1000px;
+    }
+
+    #canvasTools {
+      margin-top: 5px;
+    }
+
+    #messages, #chatBox {
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      margin: 10px 0;
+      padding: 5px;
+      text-align: left;
+      background: white;
+    }
+
+    #scoreboard ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    #adminPanel, #wordChoices {
+      display: none;
+      margin-top: 10px;
+    }
+
+    .popup {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      padding: 20px;
+      border: 2px solid #000;
+      z-index: 1000;
+    }
+
+    input, button, textarea {
+      margin: 4px;
+      padding: 5px;
+    }
+
+    #chatSection {
+      margin-top: 10px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    #darkModeBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <button id="darkModeBtn" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+
+  <div id="container">
+    <h2>Skribbl Clone 🎨</h2>
+
+    <input type="text" id="username" placeholder="Your name" />
+    <input type="text" id="roomCode" placeholder="Room code (e.g. 1234)" maxlength="4" />
+    <textarea id="customWords" placeholder="Custom words (optional, comma-separated)"></textarea><br>
+    <button onclick="joinRoom()">Join / Create Room</button>
+
+    <div id="game">
+      <h3 id="turnInfo">Waiting...</h3>
+      <div>
+        Hint: <span id="wordHint">-</span> |
+        Time: <span id="timer">45</span>s |
+        Round: <span id="roundDisplay">1</span>
+      </div>
+
+      <canvas id="canvas" width="600" height="400"></canvas>
+
+      <div id="canvasTools">
+        <input type="color" id="colorPicker" value="#000000" />
+        <input type="range" id="thickness" min="1" max="10" value="2" />
+        <button onclick="toggleEraser()">🧹 Eraser</button>
+        <button onclick="clearCanvas()">🧼 Clear</button>
+        <button onclick="exportCanvas()">💾 Download</button>
+      </div>
+
+      <div id="chatSection">
+        <input id="chatInput" placeholder="Type a message..." />
+        <button onclick="sendChat()">Send</button>
+        <div id="chatBox"></div>
+      </div>
+
+      <div id="chat">
+        <input id="guess" placeholder="Your guess" />
+        <button onclick="sendGuess()">Send</button>
+        <div id="messages"></div>
+      </div>
+
+      <div id="scoreboard">
+        <h4>Scoreboard</h4>
+        <ul id="scores"></ul>
+      </div>
+    </div>
+
+    <div id="adminPanel">
+      <h4>🛠 Admin Panel</h4>
+      <button onclick="socket.emit('pauseGame', roomCode)">⏸ Pause</button>
+      <button onclick="socket.emit('resumeGame', roomCode)">▶ Resume</button>
+      <button onclick="socket.emit('skipTurn', roomCode)">⏭ Skip Turn</button>
+      <button onclick="socket.emit('resetGame', roomCode)">🔄 Reset</button>
+    </div>
+
+    <div id="wordChoices" class="popup">
+      <h3>Choose a word:</h3>
+      <div id="choiceButtons"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let isMyTurn = false;
+    let drawing = false;
+    let eraserOn = false;
+    let roomCode = "";
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+
+    function joinRoom() {
+      const name = document.getElementById("username").value.trim();
+      roomCode = document.getElementById("roomCode").value.trim();
+      const words = document.getElementById("customWords").value.split(",").map(w => w.trim()).filter(Boolean);
+      if (!name || !roomCode) return alert("Enter name and room code!");
+      socket.emit("joinRoom", { name, room: roomCode, customWords: words });
+      document.getElementById("game").style.display = "block";
+    }
+
+    canvas.addEventListener("mousedown", e => { if (isMyTurn) { drawing = true; draw(e.offsetX, e.offsetY, false); }});
+    canvas.addEventListener("mousemove", e => { if (drawing && isMyTurn) draw(e.offsetX, e.offsetY, true); });
+    canvas.addEventListener("mouseup", () => drawing = false);
+    canvas.addEventListener("mouseleave", () => drawing = false);
+
+    canvas.addEventListener("touchstart", e => {
+      if (isMyTurn) {
+        drawing = true;
+        const t = e.touches[0];
+        draw(t.clientX, t.clientY, false);
+      }
+    });
+    canvas.addEventListener("touchmove", e => {
+      if (drawing && isMyTurn) {
+        const t = e.touches[0];
+        draw(t.clientX, t.clientY, true);
+        e.preventDefault();
+      }
+    });
+    canvas.addEventListener("touchend", () => drawing = false);
+
+    function draw(x, y, drag) {
+      const color = eraserOn ? "#fff" : document.getElementById("colorPicker").value;
+      const thickness = eraserOn ? 12 : document.getElementById("thickness").value;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thickness;
+      if (drag) { ctx.lineTo(x, y); ctx.stroke(); } else { ctx.beginPath(); ctx.moveTo(x, y); }
+      socket.emit("draw", { room: roomCode, x, y, drag, color, thickness });
+    }
+
+    socket.on("draw", d => {
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = d.thickness;
+      if (d.drag) { ctx.lineTo(d.x, d.y); ctx.stroke(); } else { ctx.beginPath(); ctx.moveTo(d.x, d.y); }
+    });
+
+    function toggleEraser() { eraserOn = !eraserOn; }
+    function exportCanvas() {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "drawing.png";
+      a.click();
+    }
+    function clearCanvas() {
+      if (isMyTurn) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        socket.emit("clearCanvas", roomCode);
+      }
+    }
+    socket.on("clearCanvas", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    function sendGuess() {
+      const g = document.getElementById("guess").value;
+      if (g.trim()) socket.emit("guess", { room: roomCode, guess: g.trim() });
+      document.getElementById("guess").value = "";
+    }
+
+    function sendChat() {
+      const msg = document.getElementById("chatInput").value.trim();
+      if (msg) {
+        socket.emit("chatMessage", { room: roomCode, msg });
+        document.getElementById("chatInput").value = "";
+      }
+    }
+
+    socket.on("chatMessage", ({ name, msg }) => {
+      const chatBox = document.getElementById("chatBox");
+      const div = document.createElement("div");
+      div.textContent = `${name}: ${msg}`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    socket.on("message", msg => {
+      const div = document.createElement("div");
+      div.textContent = msg;
+      document.getElementById("messages").appendChild(div);
+      div.scrollIntoView();
+    });
+
+    socket.on("turn", ({ drawer, wordHint, isYourTurn }) => {
+      isMyTurn = isYourTurn;
+      document.getElementById("turnInfo").textContent = isMyTurn ? "🎯 Your turn to draw!" : `${drawer} is drawing...`;
+      document.getElementById("wordHint").textContent = wordHint;
+      document.getElementById("guess").disabled = isMyTurn;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    socket.on("roundUpdate", round => {
+      document.getElementById("roundDisplay").textContent = round;
+    });
+
+    socket.on("timer", t => document.getElementById("timer").textContent = t);
+
+    socket.on("scoreboard", scores => {
+      const list = document.getElementById("scores");
+      list.innerHTML = "";
+      scores.forEach(u => {
+        const li = document.createElement("li");
+        li.textContent = `${u.name}: ${u.score}`;
+        list.appendChild(li);
+      });
+    });
+
+    socket.on("chooseWord", words => {
+      const popup = document.getElementById("wordChoices");
+      const container = document.getElementById("choiceButtons");
+      container.innerHTML = "";
+      words.forEach(word => {
+        const btn = document.createElement("button");
+        btn.textContent = word;
+        btn.onclick = () => {
+          socket.emit("wordSelected", { room: roomCode, word });
+          popup.style.display = "none";
+        };
+        container.appendChild(btn);
+      });
+      popup.style.display = "block";
+    });
+
+    socket.on("isAdmin", () => {
+      document.getElementById("adminPanel").style.display = "block";
+    });
+
+    socket.on("gameOver", winner => {
+      alert(`🏁 Game Over!\nWinner: ${winner.name} (${winner.score} points)`);
+      location.reload();
+    });
+  </script>
+</body>
+</html>
